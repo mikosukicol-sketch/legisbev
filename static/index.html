@@ -351,6 +351,7 @@
 
     #cy {
       flex: 1;
+      min-height: 400px;
       background: #0a1628;
     }
 
@@ -481,6 +482,7 @@
     try {
       const res = await fetch('/api/grafo');
       graphData = await res.json();
+      console.log('Graph data:', graphData.nodes?.length, 'nodes,', graphData.edges?.length, 'edges');
       renderGraph(graphData);
     } catch (e) {
       console.error('Graph load error:', e);
