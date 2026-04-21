@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LEGISBEV — Copiloto Legal</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.29.2/cytoscape.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: 0.02em;
+    }
+    header .subtitle {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-left: 4px;
+    }
+    .health-badge {
+      margin-left: auto;
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #166534;
+      color: #86efac;
+      border: 1px solid #166534;
+    }
+    .health-badge.degraded {
+      background: #7f1d1d;
+      color: #fca5a5;
+      border-color: #7f1d1d;
+    }
+
+    /* ── Main layout ── */
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Left panel ── */
+    .panel-left {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #334155;
+      overflow: hidden;
+    }
+
+    .query-section {
+      padding: 20px;
+      border-bottom: 1px solid #334155;
+      background: #1e293b;
+      flex-shrink: 0;
+    }
+
+    textarea#pregunta {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.9rem;
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    textarea#pregunta:focus {
+      border-color: #3b82f6;
+    }
+    textarea#pregunta::placeholder {
+      color: #475569;
+    }
+
+    .btn-consultar {
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-consultar:hover { background: #1d4ed8; }
+    .btn-consultar:disabled { background: #334155; cursor: not-allowed; }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid #ffffff40;
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+    .btn-consultar.loading .spinner { display: block; }
+    .btn-consultar.loading .btn-text { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .examples-section {
+      padding: 12px 20px;
+      border-bottom: 1px solid #334155;
+      flex-shrink: 0;
+    }
+    .examples-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+    .example-pills {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .example-pill {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: left;
+    }
+    .example-pill:hover {
+      background: #263548;
+      color: #e2e8f0;
+      border-color: #3b82f6;
+    }
+
+    /* ── Response area ── */
+    .response-section {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #475569;
+      text-align: center;
+      gap: 12px;
+    }
+    .empty-state .icon { font-size: 2.5rem; }
+    .empty-state p { font-size: 0.85rem; }
+
+    .alert-box {
+      background: #451a03;
+      border: 1px solid #b45309;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      font-size: 0.84rem;
+      color: #fde68a;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .response-text {
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: #cbd5e1;
+      margin-bottom: 16px;
+      white-space: pre-wrap;
+    }
+
+    .section-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 8px;
+      margin-top: 16px;
+    }
+
+    .norms-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .norm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border: 1px solid;
+    }
+    .norm-badge.vigente {
+      background: #052e16;
+      color: #86efac;
+      border-color: #166534;
+    }
+    .norm-badge.derogada {
+      background: #450a0a;
+      color: #fca5a5;
+      border-color: #991b1b;
+    }
+    .norm-badge.modificada {
+      background: #431407;
+      color: #fdba74;
+      border-color: #9a3412;
+    }
+    .norm-badge.desconocido {
+      background: #1e293b;
+      color: #94a3b8;
+      border-color: #334155;
+    }
+    .norm-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+    .norm-badge.vigente .norm-dot { background: #22c55e; }
+    .norm-badge.derogada .norm-dot { background: #ef4444; }
+    .norm-badge.modificada .norm-dot { background: #f97316; }
+    .norm-badge.desconocido .norm-dot { background: #64748b; }
+
+    .relations-list {
+      margin-bottom: 12px;
+    }
+    .relation-item {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .rel-arrow {
+      font-size: 0.7rem;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .rel-modifica { background: #431407; color: #fdba74; }
+    .rel-deroga { background: #450a0a; color: #fca5a5; }
+    .rel-reglamenta { background: #052e16; color: #86efac; }
+    .rel-inexequible { background: #450a0a; color: #f87171; }
+    .rel-default { background: #1e293b; color: #94a3b8; }
+
+    /* Fragments */
+    .fragments-list { margin-top: 4px; }
+    details {
+      border: 1px solid #334155;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+    details summary {
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      color: #64748b;
+      cursor: pointer;
+      background: #1e293b;
+      user-select: none;
+    }
+    details summary:hover { color: #94a3b8; }
+    details[open] summary { border-bottom: 1px solid #334155; }
+    details .fragment-text {
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      line-height: 1.6;
+      background: #0f172a;
+      font-style: italic;
+    }
+
+    /* ── Right panel ── */
+    .panel-right {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .graph-header {
+      padding: 12px 20px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .graph-header h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.68rem;
+      color: #64748b;
+    }
+    .legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    #cy {
+      flex: 1;
+      background: #0a1628;
+    }
+
+    .node-info-panel {
+      padding: 14px 20px;
+      background: #1e293b;
+      border-top: 1px solid #334155;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      min-height: 60px;
+      max-height: 100px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .node-info-panel.empty { color: #475569; font-style: italic; }
+    .node-info-title {
+      font-weight: 600;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.5rem">⚖️</span>
+  <div>
+    <h1>LEGISBEV <span style="color:#3b82f6">—</span> Copiloto Legal</h1>
+    <span class="subtitle">Legislación colombiana de bebidas alcohólicas</span>
+  </div>
+  <span class="health-badge" id="healthBadge">● Conectando...</span>
+</header>
+
+<main>
+  <!-- LEFT PANEL -->
+  <div class="panel-left">
+    <div class="query-section">
+      <textarea id="pregunta" placeholder="Haz una pregunta sobre la legislación colombiana de bebidas alcohólicas..." rows="3"></textarea>
+      <button class="btn-consultar" id="btnConsultar" onclick="consultar()">
+        <div class="spinner"></div>
+        <span class="btn-text">🔍 Consultar</span>
+      </button>
+    </div>
+
+    <div class="examples-section">
+      <div class="examples-label">Preguntas de ejemplo</div>
+      <div class="example-pills">
+        <button class="example-pill" onclick="setExample(this)">¿Está vigente el Decreto 1686 de 2012?</button>
+        <button class="example-pill" onclick="setExample(this)">¿Qué normas regulan el etiquetado de aguardiente?</button>
+        <button class="example-pill" onclick="setExample(this)">¿Qué decretos reglamentan la Ley 1816 de 2016?</button>
+        <button class="example-pill" onclick="setExample(this)">¿Puede un departamento contradecir la Ley 1816 con ordenanzas?</button>
+        <button class="example-pill" onclick="setExample(this)">¿Cuál es la norma de mayor jerarquía que fundamenta el registro sanitario INVIMA?</button>
+      </div>
+    </div>
+
+    <div class="response-section" id="responseSection">
+      <div class="empty-state" id="emptyState">
+        <div class="icon">⚖️</div>
+        <p>Haz una pregunta para comenzar<br>la consulta legal.</p>
+      </div>
+      <div id="responseContent" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel-right">
+    <div class="graph-header">
+      <h2>📊 Grafo de Normas</h2>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#2563eb"></span>Ley</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#16a34a"></span>Decreto</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#ea580c"></span>Resolución</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#7c3aed"></span>Ordenanza</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#6b7280"></span>Sentencia</span>
+      </div>
+    </div>
+    <div id="cy"></div>
+    <div class="node-info-panel empty" id="nodeInfo">
+      Click en un nodo para ver información de la norma.
+    </div>
+  </div>
+</main>
+
+<script>
+  let cy = null;
+  let graphData = null;
+
+  // ── Init ────────────────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    checkHealth();
+    loadGraph();
+
+    // Allow Enter key to submit (Shift+Enter for newline)
+    document.getElementById('pregunta').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        consultar();
+      }
+    });
+  });
+
+  async function checkHealth() {
+    try {
+      const res = await fetch('/health');
+      const data = await res.json();
+      const badge = document.getElementById('healthBadge');
+      if (data.status === 'ok') {
+        badge.textContent = `● ${data.normas} normas · ${data.relaciones} relaciones`;
+        badge.className = 'health-badge';
+      } else {
+        badge.textContent = '● Degradado';
+        badge.className = 'health-badge degraded';
+      }
+    } catch (e) {
+      document.getElementById('healthBadge').textContent = '● Sin conexión';
+      document.getElementById('healthBadge').className = 'health-badge degraded';
+    }
+  }
+
+  // ── Graph ───────────────────────────────────────────────────────────────
+  async function loadGraph() {
+    try {
+      const res = await fetch('/api/grafo');
+      graphData = await res.json();
+      renderGraph(graphData);
+    } catch (e) {
+      console.error('Graph load error:', e);
+    }
+  }
+
+  function renderGraph(data) {
+    const elements = [];
+
+    (data.nodes || []).forEach(n => {
+      elements.push({
+        data: {
+          id: n.id,
+          label: n.label,
+          tipo: n.tipo,
+          estado: n.estado,
+          color: n.color || '#6b7280'
+        }
+      });
+    });
+
+    (data.edges || []).forEach((e, i) => {
+      elements.push({
+        data: {
+          id: `e${i}`,
+          source: e.source,
+          target: e.target,
+          label: e.label,
+          color: e.color || '#9ca3af'
+        }
+      });
+    });
+
+    cy = cytoscape({
+      container: document.getElementById('cy'),
+      elements,
+      style: [
+        {
+          selector: 'node',
+          style: {
+            'background-color': 'data(color)',
+            'label': 'data(label)',
+            'color': '#e2e8f0',
+            'font-size': '9px',
+            'font-family': 'monospace',
+            'text-valign': 'bottom',
+            'text-halign': 'center',
+            'text-margin-y': '4px',
+            'width': '28px',
+            'height': '28px',
+            'border-width': '1.5px',
+            'border-color': '#ffffff20',
+            'text-outline-color': '#0a1628',
+            'text-outline-width': '2px',
+          }
+        },
+        {
+          selector: 'node:selected, node.highlighted',
+          style: {
+            'border-color': '#f1f5f9',
+            'border-width': '3px',
+            'width': '36px',
+            'height': '36px',
+          }
+        },
+        {
+          selector: 'edge',
+          style: {
+            'width': 1.5,
+            'line-color': 'data(color)',
+            'target-arrow-color': 'data(color)',
+            'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier',
+            'label': 'data(label)',
+            'font-size': '8px',
+            'color': '#64748b',
+            'text-outline-color': '#0a1628',
+            'text-outline-width': '2px',
+            'text-rotation': 'autorotate',
+            'opacity': 0.7,
+          }
+        },
+        {
+          selector: 'edge.highlighted',
+          style: {
+            'width': 3,
+            'opacity': 1,
+          }
+        }
+      ],
+      layout: {
+        name: 'cose',
+        nodeRepulsion: 8000,
+        idealEdgeLength: 80,
+        animate: false,
+        padding: 20,
+      }
+    });
+
+    // Click node → show info
+    cy.on('tap', 'node', async (evt) => {
+      const node = evt.target;
+      const d = node.data();
+      showNodeInfo(d, node);
+      
+      // Try to fetch full norm info
+      try {
+        const parts = d.label.split('/');
+        if (parts.length === 2) {
+          const año = parts[1];
+          const tipoNum = parts[0].replace(/^[A-Z]\./, '');
+          const [tipo, num] = extractTipoNum(d.id, d.tipo, tipoNum);
+          if (tipo && num) {
+            const res = await fetch(`/api/norma/${encodeURIComponent(tipo)}/${num}/${año}`);
+            if (res.ok) {
+              const data = await res.json();
+              showNodeInfoFull(data);
+            }
+          }
+        }
+      } catch (e) {}
+    });
+
+    cy.on('tap', (evt) => {
+      if (evt.target === cy) {
+        const info = document.getElementById('nodeInfo');
+        info.className = 'node-info-panel empty';
+        info.innerHTML = 'Click en un nodo para ver información de la norma.';
+      }
+    });
+  }
+
+  function extractTipoNum(id, tipo, label) {
+    if (tipo) return [tipo, id.replace(/^[a-z]/, '')];
+    const match = id.match(/^([a-z]+)(\d+)$/);
+    if (match) {
+      const prefix = match[1];
+      const num = match[2];
+      const tipoMap = { d: 'Decreto', l: 'Ley', r: 'Resolución', s: 'Sentencia', o: 'Ordenanza' };
+      return [tipoMap[prefix] || 'Decreto', num];
+    }
+    return [null, null];
+  }
+
+  function showNodeInfo(d) {
+    const info = document.getElementById('nodeInfo');
+    info.className = 'node-info-panel';
+    info.innerHTML = `<div class="node-info-title">${d.label}</div>
+      <div style="margin-top:4px;color:#64748b">Tipo: ${d.tipo || '—'} · Estado: ${d.estado || '—'}</div>`;
+  }
+
+  function showNodeInfoFull(data) {
+    const info = document.getElementById('nodeInfo');
+    const relStr = (data.relaciones || []).slice(0, 3)
+      .map(r => `<span style="color:#64748b">${r.origen} <b style="color:#94a3b8">[${r.tipo}]</b> → ${r.destino}</span>`)
+      .join('<br>');
+    info.innerHTML = `
+      <div class="node-info-title">${data.tipo} ${data.numero} de ${data.año}</div>
+      <div style="margin-top:4px;color:#64748b">${(data.titulo || '').slice(0, 120)}</div>
+      ${relStr ? `<div style="margin-top:6px;font-size:0.72rem">${relStr}</div>` : ''}
+    `;
+  }
+
+  function highlightNorms(normasCitadas) {
+    if (!cy) return;
+    cy.elements().removeClass('highlighted');
+    if (!normasCitadas || !normasCitadas.length) return;
+
+    normasCitadas.forEach(n => {
+      // Match by tipo+numero
+      cy.nodes().forEach(node => {
+        const d = node.data();
+        const label = d.label || '';
+        const num = n.numero;
+        if (label.includes(num) && d.tipo && d.tipo.toLowerCase() === n.tipo.toLowerCase()) {
+          node.addClass('highlighted');
+          // Also highlight connected edges
+          node.connectedEdges().addClass('highlighted');
+        }
+      });
+    });
+  }
+
+  // ── Consulta ────────────────────────────────────────────────────────────
+  function setExample(btn) {
+    document.getElementById('pregunta').value = btn.textContent;
+    document.getElementById('pregunta').focus();
+  }
+
+  async function consultar() {
+    const pregunta = document.getElementById('pregunta').value.trim();
+    if (!pregunta) return;
+
+    const btn = document.getElementById('btnConsultar');
+    btn.disabled = true;
+    btn.classList.add('loading');
+
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('responseContent').style.display = 'none';
+
+    try {
+      const res = await fetch('/api/consulta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pregunta })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Error en la consulta');
+      }
+
+      const data = await res.json();
+      renderResponse(data);
+      highlightNorms(data.normas_citadas);
+
+    } catch (e) {
+      renderError(e.message);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  }
+
+  function renderResponse(data) {
+    const content = document.getElementById('responseContent');
+    let html = '';
+
+    // Alert
+    if (data.alerta) {
+      html += `<div class="alert-box">⚠️ <span>${escapeHtml(data.alerta)}</span></div>`;
+    }
+
+    // Response text
+    html += `<div class="response-text">${escapeHtml(data.respuesta)}</div>`;
+
+    // Cited norms
+    if (data.normas_citadas && data.normas_citadas.length > 0) {
+      html += `<div class="section-title">Normas Citadas</div>`;
+      html += `<div class="norms-list">`;
+      data.normas_citadas.forEach(n => {
+        const estado = (n.estado || 'desconocido').toLowerCase();
+        const estadoClass = ['vigente','derogada','modificada'].includes(estado) ? estado : 'desconocido';
+        html += `<span class="norm-badge ${estadoClass}">
+          <span class="norm-dot"></span>
+          ${escapeHtml(n.tipo)} ${escapeHtml(n.numero)}/${n.año}
+          <span style="opacity:0.6;font-size:0.65rem">${escapeHtml(n.estado)}</span>
+        </span>`;
+      });
+      html += `</div>`;
+    }
+
+    // Relations
+    if (data.relaciones && data.relaciones.length > 0) {
+      html += `<div class="section-title">Relaciones Identificadas</div>`;
+      html += `<div class="relations-list">`;
+      data.relaciones.slice(0, 6).forEach(r => {
+        const relClass = `rel-${r.tipo}`;
+        html += `<div class="relation-item">
+          <span style="color:#94a3b8;font-size:0.75rem">${escapeHtml(r.origen)}</span>
+          <span class="rel-arrow ${relClass} rel-default">${escapeHtml(r.tipo)}</span>
+          <span style="color:#94a3b8;font-size:0.75rem">${escapeHtml(r.destino)}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // Fragments
+    if (data.fragmentos && data.fragmentos.length > 0) {
+      html += `<div class="section-title">Evidencia Textual</div>`;
+      html += `<div class="fragments-list">`;
+      data.fragmentos.forEach((f, i) => {
+        html += `<details>
+          <summary>📄 Fragmento ${i + 1}</summary>
+          <div class="fragment-text">"${escapeHtml(f)}"</div>
+        </details>`;
+      });
+      html += `</div>`;
+    }
+
+    content.innerHTML = html;
+    content.style.display = 'block';
+  }
+
+  function renderError(msg) {
+    const content = document.getElementById('responseContent');
+    content.innerHTML = `<div class="alert-box" style="background:#1c0a00;border-color:#ef4444">
+      ❌ <span>Error: ${escapeHtml(msg)}</span>
+    </div>`;
+    content.style.display = 'block';
+  }
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
