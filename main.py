@@ -474,18 +474,21 @@ def get_grafo():
                 "color": color
             })
         
-        # Build edges from grafo_relaciones
+        # Build edges — only include edges where BOTH nodes exist
         edges = []
         seen_edges = set()
         for rel in relaciones:
-            src = f"{rel['origen_tipo'][0].lower()}{rel['origen_numero']}"
-            tgt = f"{rel['destino_tipo'][0].lower()}{rel['destino_numero']}"
-            edge_key = f"{src}-{rel['tipo_relacion']}-{tgt}"
+            src_id = f"{rel['origen_tipo'][0].lower()}{rel['origen_numero']}"
+            tgt_id = f"{rel['destino_tipo'][0].lower()}{rel['destino_numero']}"
+            # Skip if either node is missing
+            if src_id not in seen_node_ids or tgt_id not in seen_node_ids:
+                continue
+            edge_key = f"{src_id}-{rel['tipo_relacion']}-{tgt_id}"
             if edge_key not in seen_edges:
                 seen_edges.add(edge_key)
                 edges.append({
-                    "source": src,
-                    "target": tgt,
+                    "source": src_id,
+                    "target": tgt_id,
                     "label": rel['tipo_relacion'],
                     "color": RELACION_COLORS.get(rel['tipo_relacion'], "#9ca3af")
                 })
