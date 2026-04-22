@@ -29,7 +29,7 @@ OPENROUTER_KEY = os.getenv(
     "OPENROUTER_KEY",
     "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"
 )
-OPENROUTER_MODEL = "openai/gpt-4o-mini"
+OPENROUTER_MODEL = "qwen/qwen-2.5-72b-instruct"
 
 SYSTEM_PROMPT = """Eres LEGISBEV, copiloto legal especializado en legislación colombiana de bebidas alcohólicas.
 Responde SOLO con la información del contexto. 
