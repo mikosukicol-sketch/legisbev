@@ -492,6 +492,7 @@
   function renderGraph(data) {
     const elements = [];
 
+    const jerarquia = {"Ley": 1, "Decreto": 2, "Resolución": 3, "Ordenanza": 4, "Sentencia": 5};
     (data.nodes || []).forEach(n => {
       elements.push({
         data: {
@@ -500,7 +501,8 @@
           tipo: n.tipo,
           estado: n.estado,
           color: n.color || '#6b7280',
-          titulo: n.titulo || ''
+          titulo: n.titulo || '',
+          rank: jerarquia[n.tipo] || 9
         }
       });
     });
@@ -575,11 +577,11 @@
         }
       ],
       layout: {
-        name: 'cose',
-        nodeRepulsion: 8000,
-        idealEdgeLength: 80,
+        name: 'breadthfirst',
+        directed: true,
+        spacingFactor: 1.5,
+        padding: 30,
         animate: false,
-        padding: 20,
       }
     });
 
