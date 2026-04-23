@@ -439,7 +439,7 @@ def get_grafo():
         raw_nodes = cur.fetchall()
         # Also get any normas not in graph
         cur.execute(
-            """SELECT id, tipo, numero, año, estado_vigencia, titulo FROM normas 
+            """SELECT id, tipo, numero, año, estado_vigencia, titulo, resumen FROM normas 
                WHERE numero IS NOT NULL AND año IS NOT NULL LIMIT 100"""
         )
         normas = cur.fetchall()
@@ -466,14 +466,15 @@ def get_grafo():
                 continue
             seen_node_ids.add(node_id)
             color = TIPO_COLORS.get(norm['tipo'], "#6b7280")
-            titulo_corto = (norm.get('titulo') or '').strip()[:80]
+            # Preferir resumen (más corto y específico) sobre titulo
+            resumen_txt = (norm.get('resumen') or norm.get('titulo') or '').strip()[:120]
             nodes.append({
                 "id": node_id,
                 "label": f"{norm['tipo'][0]}.{norm['numero']}/{norm['año']}",
                 "tipo": norm['tipo'],
                 "estado": norm.get('estado_vigencia', 'vigente'),
                 "color": color,
-                "titulo": titulo_corto
+                "titulo": resumen_txt
             })
         
         # Build edges — only include edges where BOTH nodes exist
