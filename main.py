@@ -27,7 +27,7 @@ DB_URL = os.getenv(
 # OpenRouter Config
 OPENROUTER_KEY = os.getenv(
     "OPENROUTER_KEY",
-    "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"
+    "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"
 )
 OPENROUTER_MODEL = "qwen/qwen-2.5-72b-instruct"
 
